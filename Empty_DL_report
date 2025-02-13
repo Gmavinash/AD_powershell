@@ -1,0 +1,36 @@
+# Define the output CSV file path
+$outputCsv = "C:\path\to\output\empty_distribution_groups.csv"
+ 
+# Get all distribution groups where memberof is empty
+$distributionGroups = Get-ADGroup -Filter {GroupCategory -eq "Distribution" -and MemberOf -eq $null}
+ 
+# Initialize an array to store the results
+$results = @()
+ 
+foreach ($group in $distributionGroups) {
+    # Get the members of the distribution group
+    $members = Get-ADGroupMember -Identity $group | Select-Object -ExpandProperty SamAccountName
+ 
+    # Check if the group has no members
+    if ($members.Count -eq 0) {
+        # Get the manager of the distribution group
+        $manager = (Get-ADGroup -Identity $group -Properties ManagedBy).ManagedBy
+ 
+        # Get the OU path of the distribution group
+        $ouPath = (Get-ADGroup -Identity $group).DistinguishedName
+ 
+        # Add the details to the results array
+        $results += [PSCustomObject]@{
+            Name       = $group.Name
+            MemberOf   = $group.MemberOf
+            Members    = "None"
+            ManagedBy  = $manager
+            OUPath     = $ouPath
+        }
+    }
+}
+ 
+# Export the results to a CSV file
+$results | Export-Csv -Path $outputCsv -NoTypeInformation
+ 
+Write-Host "Empty distribution group details exported to $outputCsv"
