@@ -1,0 +1,40 @@
+# Import the Active Directory module
+Import-Module ActiveDirectory
+
+# Get today's date
+$today = (Get-Date).Date
+
+# Get locked out users from today
+#$lockedOutUsers = Search-ADAccount -LockedOut -UsersOnly | Where-Object { $_.LockoutTime -lt $today }
+
+#Get-ADUser -Filter {LockedOut -eq $true -and lockoutTime -ge $today} -Properties lockoutTime
+
+$results = Get-ADUser -Filter 'Enabled -eq $true' -Properties "msDS-UserPasswordExpiryTimeComputed", "UserPrincipalName", "SamAccountName", "PasswordExpired", "Passwordlastset", "enabled", "LastLogonDate", "LockedOut", "AccountLockoutTime", "badPwdCount", "extensionAttribute6", "extensionAttribute8", "extensionAttribute15", "employeeType","Country","l" | `
+Where-Object { $_.LockoutTime -lt $today } |
+    Where-Object { $_.SamAccountName.Length -eq 5 -and $_.LockedOut -eq $true } | 
+    Select-Object UserPrincipalName, SamAccountName, PasswordExpired, Passwordlastset, enabled, LastLogonDate, LockedOut, AccountLockoutTime, badPwdCount, extensionAttribute6, extensionAttribute8, extensionAttribute15, employeeType,Country,l,Department,CanonicalName,
+    @{Name="ExpiryDate";Expression={[datetime]::FromFileTime($_."msDS-UserPasswordExpiryTimeComputed")}} 
+
+
+# Format the results
+#$results = $lockedOutUsers | Select-Object Name, SamAccountName, AccountLockoutTime
+
+# Convert results to HTML
+$resultsHtml = $results | ConvertTo-Html -Fragment
+
+# Email parameters
+$smtpServer = "smtpmail id "
+$from = "no-reply@domain.com"
+$to = #need to mention mail id 
+$subject = "Locked Out Users Report - $(Get-Date -Format 'yyyy-MM-dd')"
+$body = @"
+<html>
+<body>
+<h2>Locked Out Users Report - $(Get-Date -Format 'yyyy-MM-dd')</h2>
+$resultsHtml
+</body>
+</html>
+"@
+
+# Send the email
+Send-MailMessage -From $from -To $to -Subject $subject -Body $body -BodyAsHtml -SmtpServer $smtpServer
