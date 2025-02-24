@@ -1,0 +1,31 @@
+# Define the list of servers to check
+$servers =  Get-Content 'C:\Users\user id \Desktop\servers.txt'
+
+# Initialize an array to store the results
+$results = @()
+
+foreach ($server in $servers) {
+    # Use Invoke-Command to run the command on the remote server
+    $certificates = Invoke-Command -ComputerName $server -ScriptBlock {
+        Get-ChildItem -Path Cert:\LocalMachine\My -Recurse
+    }
+
+    foreach ($cert in $certificates) {
+        # Check if the certificate is expired
+        if ($cert.NotAfter -lt (Get-Date)) {
+            # Add the certificate details to the results array
+            $results += [PSCustomObject]@{
+                ServerName   = $server
+                Subject      = $cert.Subject
+                Issuer       = $cert.Issuer
+                ExpiryDate   = $cert.NotAfter
+                Thumbprint   = $cert.Thumbprint
+            }
+        }
+    }
+}
+
+# Export the results to a CSV file
+$results | Export-Csv -Path 'c:\temp\ExpiredCertificatesReport.csv' -NoTypeInformation
+
+Write-Output "Report generated: ExpiredCertificatesReport.csv"
